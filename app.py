@@ -171,13 +171,14 @@ def executar_scraping(placas, historico_id):
                             print(f"   🔄 Atualizando placa existente: {placa}")
                             # Atualizar dados existentes
                             for key, value in dados.items():
-                                if hasattr(placa_existente, key):
+                                if hasattr(placa_existente, key) and key != 'placa':
                                     setattr(placa_existente, key, value)
                             placa_existente.status = 'atualizado'
                         else:
                             print(f"   ➕ Criando nova entrada para: {placa}")
-                            # Criar nova entrada
-                            nova_placa = Placa(placa=placa, **dados)
+                            # Criar nova entrada - remover placa dos dados se existir
+                            dados_limpos = {k: v for k, v in dados.items() if k != 'placa'}
+                            nova_placa = Placa(placa=placa, **dados_limpos)
                             db.session.add(nova_placa)
                         
                         db.session.commit()

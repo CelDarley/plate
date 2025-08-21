@@ -140,7 +140,6 @@ class PlacaFipeScraperAlternative:
         try:
             # Tentar buscar informações básicas da placa
             dados = {
-                'placa': placa,
                 'status': 'consulta_basica'
             }
             
