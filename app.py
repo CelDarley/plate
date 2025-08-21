@@ -3,7 +3,7 @@ from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timezone, timedelta
 import os
 from dotenv import load_dotenv
-from scraper import PlacaFipeScraper
+from scraper_hybrid import PlacaFipeScraperHybrid
 import threading
 import time
 
@@ -144,7 +144,7 @@ def executar_scraping(placas, historico_id):
     with app.app_context():
         try:
             print("🔧 Inicializando scraper...")
-            scraper = PlacaFipeScraper()
+            scraper = PlacaFipeScraperHybrid()
             print("✅ Scraper inicializado com sucesso")
             
             tempos = [30, 45, 65, 48]  # Sequência de tempos
