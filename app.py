@@ -179,8 +179,26 @@ def executar_scraping(placas, historico_id):
                             # Criar nova entrada - filtrar apenas campos válidos do modelo
                             campos_validos = ['marca', 'generico', 'modelo', 'importado', 'ano', 'ano_modelo', 
                                             'cor', 'cilindrada', 'combustivel', 'chassi', 'motor', 'passageiros', 
-                                            'uf', 'municipio', 'status']
+                                            'uf', 'municipio', 'status', 'formato_placa', 'ano_estimado', 'fonte_consulta', 'uf_estimada']
                             dados_limpos = {k: v for k, v in dados.items() if k in campos_validos}
+                            
+                            # Mapear campos especiais para campos válidos do modelo
+                            if 'formato_placa' in dados_limpos:
+                                dados_limpos['status'] = f"formato_{dados_limpos['formato_placa']}"
+                                del dados_limpos['formato_placa']
+                            
+                            if 'ano_estimado' in dados_limpos:
+                                dados_limpos['ano'] = dados_limpos['ano_estimado']
+                                del dados_limpos['ano_estimado']
+                            
+                            if 'fonte_consulta' in dados_limpos:
+                                dados_limpos['status'] = f"consulta_{dados_limpos['fonte_consulta']}"
+                                del dados_limpos['fonte_consulta']
+                            
+                            if 'uf_estimada' in dados_limpos:
+                                dados_limpos['uf'] = dados_limpos['uf_estimada']
+                                del dados_limpos['uf_estimada']
+                            
                             nova_placa = Placa(placa=placa, **dados_limpos)
                             db.session.add(nova_placa)
                         
