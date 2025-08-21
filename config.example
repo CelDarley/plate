@@ -1,0 +1,24 @@
+# Configurações do Sistema de Scraping Placa FIPE
+
+# Chave secreta para sessões Flask (altere para uma chave única e segura)
+SECRET_KEY=sua-chave-secreta-muito-segura-aqui
+
+# Ambiente de execução
+FLASK_ENV=development
+
+# Configurações do banco de dados (SQLite por padrão)
+DATABASE_URL=sqlite:///placas.db
+
+# Configurações do servidor
+HOST=0.0.0.0
+PORT=5000
+
+# Configurações de logging
+LOG_LEVEL=INFO
+
+# Configurações do Selenium (opcional)
+SELENIUM_HEADLESS=true
+SELENIUM_TIMEOUT=30
+
+# Configurações de scraping
+SCRAPING_DELAYS=30,45,65,48
