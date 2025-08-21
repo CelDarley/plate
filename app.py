@@ -1,11 +1,14 @@
-from flask import Flask, render_template, request, jsonify, redirect, url_for
+from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timezone, timedelta
 import os
 from dotenv import load_dotenv
-from scraper_hybrid import PlacaFipeScraperHybrid
-import threading
-import time
+from scraper import PlacaFipeScraper
+import logging
+
+# Configurar logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -41,269 +44,288 @@ class Placa(db.Model):
     data_scraping = db.Column(db.DateTime, default=get_current_time_gmt3)
     status = db.Column(db.String(20), default='pendente')
 
-# Modelo para armazenar o histórico de scraping
-class HistoricoScraping(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    data_inicio = db.Column(db.DateTime, default=get_current_time_gmt3)
-    data_fim = db.Column(db.DateTime)
-    total_placas = db.Column(db.Integer, default=0)
-    placas_processadas = db.Column(db.Integer, default=0)
-    status = db.Column(db.String(20), default='em_andamento')
-
-# Variável global para controlar o scraping
-scraping_ativo = False
-scraper_thread = None
-
 @app.route('/')
 def index():
-    return render_template('index.html')
+    """Endpoint raiz com informações da API"""
+    return jsonify({
+        'api': 'Placa FIPE Scraper API',
+        'version': '1.0.0',
+        'description': 'API para consulta de dados de veículos por placa',
+        'endpoints': {
+            '/': 'Informações da API',
+            '/api/placa/<placa>': 'Consulta dados de uma placa específica',
+            '/api/placas': 'Lista todas as placas consultadas',
+            '/api/placa/<placa>/historico': 'Histórico de consultas de uma placa'
+        },
+        'usage': {
+            'method': 'GET',
+            'example': '/api/placa/ABC1234'
+        }
+    })
 
-@app.route('/gestao')
-def gestao():
-    page = request.args.get('page', 1, type=int)
-    per_page = 20
-    search = request.args.get('search', '')
+@app.route('/api/placa/<placa>', methods=['GET'])
+def consultar_placa(placa):
+    """
+    Endpoint principal: consulta uma placa e retorna os dados
     
-    if search:
-        placas = Placa.query.filter(
-            Placa.placa.contains(search) | 
-            Placa.marca.contains(search) | 
-            Placa.modelo.contains(search)
-        ).paginate(page=page, per_page=per_page, error_out=False)
-    else:
-        placas = Placa.query.paginate(page=page, per_page=per_page, error_out=False)
+    Args:
+        placa (str): Número da placa (formato: ABC1234 ou ABC1D23)
     
-    return render_template('gestao.html', placas=placas, search=search)
-
-@app.route('/api/iniciar-scraping', methods=['POST'])
-def iniciar_scraping():
-    global scraping_ativo, scraper_thread
-    
-    print(f"🚀 Iniciando scraping... Status atual: {scraping_ativo}")
-    
-    if scraping_ativo:
-        print("❌ Scraping já está em andamento")
-        return jsonify({'status': 'erro', 'mensagem': 'Scraping já está em andamento'})
-    
-    # Obter lista de placas do request
-    data = request.get_json()
-    placas = data.get('placas', [])
-    
-    print(f"📋 Placas recebidas: {placas}")
-    
-    if not placas:
-        print("❌ Nenhuma placa fornecida")
-        return jsonify({'status': 'erro', 'mensagem': 'Nenhuma placa fornecida'})
-    
+    Returns:
+        JSON com os dados da placa ou erro
+    """
     try:
-        # Criar registro de histórico
-        historico = HistoricoScraping(total_placas=len(placas))
-        db.session.add(historico)
-        db.session.commit()
-        print(f"📊 Histórico criado com ID: {historico.id}")
+        # Validar formato da placa
+        if not validar_formato_placa(placa):
+            return jsonify({
+                'erro': 'Formato de placa inválido',
+                'placa': placa,
+                'formatos_aceitos': ['ABC1234', 'ABC1D23'],
+                'exemplo': 'ABC1234 ou ABC1D23'
+            }), 400
         
-        # Iniciar scraping em thread separada
-        scraping_ativo = True
-        print("🔄 Status alterado para ATIVO")
+        # Verificar se a placa já existe no banco
+        placa_existente = Placa.query.filter_by(placa=placa).first()
         
-        scraper_thread = threading.Thread(
-            target=executar_scraping, 
-            args=(placas, historico.id),
-            daemon=True  # Thread será encerrada quando o programa principal terminar
-        )
-        scraper_thread.start()
-        print("🧵 Thread de scraping iniciada")
+        if placa_existente:
+            logger.info(f"Placa {placa} encontrada no banco")
+            return jsonify({
+                'placa': placa,
+                'dados': {
+                    'id': placa_existente.id,
+                    'marca': placa_existente.marca,
+                    'generico': placa_existente.generico,
+                    'modelo': placa_existente.modelo,
+                    'importado': placa_existente.importado,
+                    'ano': placa_existente.ano,
+                    'ano_modelo': placa_existente.ano_modelo,
+                    'cor': placa_existente.cor,
+                    'cilindrada': placa_existente.cilindrada,
+                    'combustivel': placa_existente.combustivel,
+                    'chassi': placa_existente.chassi,
+                    'motor': placa_existente.motor,
+                    'passageiros': placa_existente.passageiros,
+                    'uf': placa_existente.uf,
+                    'municipio': placa_existente.municipio,
+                    'status': placa_existente.status,
+                    'data_scraping': placa_existente.data_scraping.isoformat() if placa_existente.data_scraping else None
+                },
+                'fonte': 'banco_local',
+                'timestamp': get_current_time_gmt3().isoformat()
+            })
         
-        return jsonify({'status': 'sucesso', 'mensagem': 'Scraping iniciado com sucesso'})
+        # Placa não existe, fazer scraping
+        logger.info(f"Iniciando scraping para placa {placa}")
+        
+        try:
+            scraper = PlacaFipeScraper()
+            dados = scraper.scraping_placa(placa)
+            
+            if dados:
+                # Salvar no banco
+                nova_placa = Placa(placa=placa, **dados)
+                db.session.add(nova_placa)
+                db.session.commit()
+                
+                logger.info(f"Placa {placa} processada com sucesso")
+                
+                return jsonify({
+                    'placa': placa,
+                    'dados': {
+                        'id': nova_placa.id,
+                        'marca': nova_placa.marca,
+                        'generico': nova_placa.generico,
+                        'modelo': nova_placa.modelo,
+                        'importado': nova_placa.importado,
+                        'ano': nova_placa.ano,
+                        'ano_modelo': nova_placa.ano_modelo,
+                        'cor': nova_placa.cor,
+                        'cilindrada': nova_placa.cilindrada,
+                        'combustivel': nova_placa.combustivel,
+                        'chassi': nova_placa.chassi,
+                        'motor': nova_placa.motor,
+                        'passageiros': nova_placa.passageiros,
+                        'uf': nova_placa.uf,
+                        'municipio': nova_placa.municipio,
+                        'status': nova_placa.status,
+                        'data_scraping': nova_placa.data_scraping.isoformat() if nova_placa.data_scraping else None
+                    },
+                    'fonte': 'scraping_novo',
+                    'timestamp': get_current_time_gmt3().isoformat()
+                })
+            else:
+                logger.error(f"Falha no scraping para placa {placa}")
+                return jsonify({
+                    'erro': 'Falha ao obter dados da placa',
+                    'placa': placa,
+                    'mensagem': 'Não foi possível extrair dados do site',
+                    'timestamp': get_current_time_gmt3().isoformat()
+                }), 500
+                
+        except Exception as e:
+            logger.error(f"Erro durante scraping da placa {placa}: {str(e)}")
+            return jsonify({
+                'erro': 'Erro interno durante scraping',
+                'placa': placa,
+                'mensagem': str(e),
+                'timestamp': get_current_time_gmt3().isoformat()
+            }), 500
+            
+    except Exception as e:
+        logger.error(f"Erro geral na consulta da placa {placa}: {str(e)}")
+        return jsonify({
+            'erro': 'Erro interno da API',
+            'placa': placa,
+            'mensagem': str(e),
+            'timestamp': get_current_time_gmt3().isoformat()
+        }), 500
+
+@app.route('/api/placas', methods=['GET'])
+def listar_placas():
+    """
+    Lista todas as placas consultadas com paginação
+    
+    Query params:
+        page (int): Página (padrão: 1)
+        per_page (int): Itens por página (padrão: 20, máximo: 100)
+        search (str): Termo de busca opcional
+    """
+    try:
+        page = request.args.get('page', 1, type=int)
+        per_page = min(request.args.get('per_page', 20, type=int), 100)
+        search = request.args.get('search', '')
+        
+        if search:
+            placas = Placa.query.filter(
+                Placa.placa.contains(search) | 
+                Placa.marca.contains(search) | 
+                Placa.modelo.contains(search)
+            ).paginate(page=page, per_page=per_page, error_out=False)
+        else:
+            placas = Placa.query.paginate(page=page, per_page=per_page, error_out=False)
+        
+        return jsonify({
+            'placas': [{
+                'id': p.id,
+                'placa': p.placa,
+                'marca': p.marca,
+                'modelo': p.modelo,
+                'ano': p.ano,
+                'uf': p.uf,
+                'municipio': p.municipio,
+                'data_scraping': p.data_scraping.isoformat() if p.data_scraping else None
+            } for p in placas.items],
+            'paginacao': {
+                'pagina_atual': page,
+                'total_paginas': placas.pages,
+                'total_placas': placas.total,
+                'por_pagina': per_page
+            },
+            'timestamp': get_current_time_gmt3().isoformat()
+        })
         
     except Exception as e:
-        print(f"❌ Erro ao iniciar scraping: {str(e)}")
-        scraping_ativo = False
-        return jsonify({'status': 'erro', 'mensagem': f'Erro interno: {str(e)}'})
+        logger.error(f"Erro ao listar placas: {str(e)}")
+        return jsonify({
+            'erro': 'Erro ao listar placas',
+            'mensagem': str(e),
+            'timestamp': get_current_time_gmt3().isoformat()
+        }), 500
 
-@app.route('/api/parar-scraping', methods=['POST'])
-def parar_scraping():
-    global scraping_ativo
-    print("🛑 Parando scraping...")
-    scraping_ativo = False
-    return jsonify({'status': 'sucesso', 'mensagem': 'Scraping parado com sucesso'})
+@app.route('/api/placa/<placa>/historico', methods=['GET'])
+def historico_placa(placa):
+    """
+    Retorna o histórico de consultas de uma placa específica
+    """
+    try:
+        placa_obj = Placa.query.filter_by(placa=placa).first()
+        
+        if not placa_obj:
+            return jsonify({
+                'erro': 'Placa não encontrada',
+                'placa': placa,
+                'timestamp': get_current_time_gmt3().isoformat()
+            }), 404
+        
+        return jsonify({
+            'placa': placa,
+            'historico': {
+                'id': placa_obj.id,
+                'marca': placa_obj.marca,
+                'generico': placa_obj.generico,
+                'modelo': placa_obj.modelo,
+                'importado': placa_obj.importado,
+                'ano': placa_obj.ano,
+                'ano_modelo': placa_obj.ano_modelo,
+                'cor': placa_obj.cor,
+                'cilindrada': placa_obj.cilindrada,
+                'combustivel': placa_obj.combustivel,
+                'chassi': placa_obj.chassi,
+                'motor': placa_obj.motor,
+                'passageiros': placa_obj.passageiros,
+                'uf': placa_obj.uf,
+                'municipio': placa_obj.municipio,
+                'status': placa_obj.status,
+                'data_scraping': placa_obj.data_scraping.isoformat() if placa_obj.data_scraping else None
+            },
+            'timestamp': get_current_time_gmt3().isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"Erro ao consultar histórico da placa {placa}: {str(e)}")
+        return jsonify({
+            'erro': 'Erro ao consultar histórico',
+            'placa': placa,
+            'mensagem': str(e),
+            'timestamp': get_current_time_gmt3().isoformat()
+        }), 500
 
-@app.route('/api/status-scraping')
-def status_scraping():
-    global scraping_ativo
-    print(f"📊 Status consultado: {scraping_ativo}")
-    return jsonify({'ativo': scraping_ativo})
+def validar_formato_placa(placa):
+    """
+    Valida se o formato da placa é válido
+    
+    Formatos aceitos:
+    - Antigo: ABC1234 (3 letras + 4 números)
+    - Mercosul: ABC1D23 (3 letras + 1 número + 1 letra + 2 números)
+    """
+    import re
+    
+    # Formato antigo: ABC1234
+    formato_antigo = re.match(r'^[A-Z]{3}\d{4}$', placa)
+    
+    # Formato Mercosul: ABC1D23
+    formato_mercosul = re.match(r'^[A-Z]{3}\d[A-Z]\d{2}$', placa)
+    
+    return bool(formato_antigo or formato_mercosul)
 
-def executar_scraping(placas, historico_id):
-    global scraping_ativo
-    
-    print(f"🎯 Iniciando execução do scraping para {len(placas)} placas")
-    print(f"📅 Histórico ID: {historico_id}")
-    
-    # Criar contexto de aplicação para esta thread
-    with app.app_context():
-        try:
-            print("🔧 Inicializando scraper...")
-            scraper = PlacaFipeScraperHybrid()
-            print("✅ Scraper inicializado com sucesso")
-            
-            tempos = [30, 45, 65, 48]  # Sequência de tempos
-            tempo_index = 0
-            
-            for i, placa in enumerate(placas):
-                if not scraping_ativo:
-                    print("⏹️  Scraping interrompido pelo usuário")
-                    break
-                    
-                print(f"\n🚗 Processando placa {i+1}/{len(placas)}: {placa}")
-                
-                try:
-                    # Fazer scraping da placa
-                    print(f"   🔍 Fazendo scraping de {placa}...")
-                    dados = scraper.scraping_placa(placa)
-                    
-                    if dados:
-                        print(f"   ✅ Dados obtidos para {placa}: {len(dados)} campos")
-                        
-                        # Verificar se a placa já existe
-                        placa_existente = Placa.query.filter_by(placa=placa).first()
-                        if placa_existente:
-                            print(f"   🔄 Atualizando placa existente: {placa}")
-                            # Atualizar dados existentes
-                            for key, value in dados.items():
-                                if hasattr(placa_existente, key) and key != 'placa':
-                                    setattr(placa_existente, key, value)
-                            placa_existente.status = 'atualizado'
-                        else:
-                            print(f"   ➕ Criando nova entrada para: {placa}")
-                            # Criar nova entrada - filtrar apenas campos válidos do modelo
-                            campos_validos = ['marca', 'generico', 'modelo', 'importado', 'ano', 'ano_modelo', 
-                                            'cor', 'cilindrada', 'combustivel', 'chassi', 'motor', 'passageiros', 
-                                            'uf', 'municipio', 'status', 'formato_placa', 'ano_estimado', 'fonte_consulta', 'uf_estimada']
-                            dados_limpos = {k: v for k, v in dados.items() if k in campos_validos}
-                            
-                            # Mapear campos especiais para campos válidos do modelo
-                            if 'formato_placa' in dados_limpos:
-                                dados_limpos['status'] = f"formato_{dados_limpos['formato_placa']}"
-                                del dados_limpos['formato_placa']
-                            
-                            if 'ano_estimado' in dados_limpos:
-                                dados_limpos['ano'] = dados_limpos['ano_estimado']
-                                del dados_limpos['ano_estimado']
-                            
-                            if 'fonte_consulta' in dados_limpos:
-                                dados_limpos['status'] = f"consulta_{dados_limpos['fonte_consulta']}"
-                                del dados_limpos['fonte_consulta']
-                            
-                            if 'uf_estimada' in dados_limpos:
-                                dados_limpos['uf'] = dados_limpos['uf_estimada']
-                                del dados_limpos['uf_estimada']
-                            
-                            nova_placa = Placa(placa=placa, **dados_limpos)
-                            db.session.add(nova_placa)
-                        
-                        db.session.commit()
-                        print(f"   💾 Dados salvos no banco para {placa}")
-                        
-                        # Atualizar histórico
-                        historico = db.session.get(HistoricoScraping, historico_id)
-                        if historico:
-                            historico.placas_processadas += 1
-                            db.session.commit()
-                            print(f"   📊 Histórico atualizado: {historico.placas_processadas}/{historico.total_placas}")
-                    else:
-                        print(f"   ⚠️  Nenhum dado obtido para {placa}")
-                    
-                    # Aguardar tempo especificado
-                    if i < len(placas) - 1:  # Não aguardar após a última placa
-                        tempo_espera = tempos[tempo_index % len(tempos)]
-                        print(f"   ⏰ Aguardando {tempo_espera} segundos...")
-                        time.sleep(tempo_espera)
-                        tempo_index += 1
-                        
-                except Exception as e:
-                    print(f"   ❌ Erro ao processar placa {placa}: {str(e)}")
-                    import traceback
-                    traceback.print_exc()
-                    continue
-                    
-        except Exception as e:
-            print(f"❌ Erro geral no scraping: {str(e)}")
-            import traceback
-            traceback.print_exc()
-        finally:
-            print("🏁 Finalizando scraping...")
-            # Finalizar histórico
-            try:
-                historico = db.session.get(HistoricoScraping, historico_id)
-                if historico:
-                    historico.data_fim = get_current_time_gmt3()
-                    historico.status = 'concluido'
-                    db.session.commit()
-                    print(f"📊 Histórico finalizado: {historico.placas_processadas}/{historico.total_placas} placas processadas")
-            except Exception as e:
-                print(f"❌ Erro ao finalizar histórico: {str(e)}")
-            
-            scraping_ativo = False
-            print("✅ Scraping finalizado")
-
-@app.route('/api/placas')
-def api_placas():
-    page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 20, type=int)
-    search = request.args.get('search', '')
-    
-    if search:
-        placas = Placa.query.filter(
-            Placa.placa.contains(search) | 
-            Placa.marca.contains(search) | 
-            Placa.modelo.contains(search)
-        ).paginate(page=page, per_page=per_page, error_out=False)
-    else:
-        placas = Placa.query.paginate(page=page, per_page=per_page, error_out=False)
-    
+@app.errorhandler(404)
+def not_found(error):
     return jsonify({
-        'placas': [{
-            'id': p.id,
-            'placa': p.placa,
-            'marca': p.marca,
-            'modelo': p.modelo,
-            'ano': p.ano,
-            'municipio': p.municipio,
-            'uf': p.uf,
-            'data_scraping': p.data_scraping.isoformat() if p.data_scraping else None
-        } for p in placas.items],
-        'total': placas.total,
-        'pages': placas.pages,
-        'current_page': page
-    })
+        'erro': 'Endpoint não encontrado',
+        'mensagem': 'Verifique a URL e tente novamente',
+        'endpoints_disponiveis': [
+            '/',
+            '/api/placa/<placa>',
+            '/api/placas',
+            '/api/placa/<placa>/historico'
+        ],
+        'timestamp': get_current_time_gmt3().isoformat()
+    }), 404
 
-@app.route('/api/placa/<int:placa_id>')
-def api_placa_detalhes(placa_id):
-    """Retorna todos os dados de uma placa específica"""
-    placa = Placa.query.get_or_404(placa_id)
+@app.errorhandler(500)
+def internal_error(error):
     return jsonify({
-        'id': placa.id,
-        'placa': placa.placa,
-        'marca': placa.marca,
-        'generico': placa.generico,
-        'modelo': placa.modelo,
-        'importado': placa.importado,
-        'ano': placa.ano,
-        'ano_modelo': placa.ano_modelo,
-        'cor': placa.cor,
-        'cilindrada': placa.cilindrada,
-        'combustivel': placa.combustivel,
-        'chassi': placa.chassi,
-        'motor': placa.motor,
-        'passageiros': placa.passageiros,
-        'uf': placa.uf,
-        'municipio': placa.municipio,
-        'data_scraping': placa.data_scraping.isoformat() if placa.data_scraping else None,
-        'status': placa.status
-    })
+        'erro': 'Erro interno do servidor',
+        'mensagem': 'Tente novamente mais tarde',
+        'timestamp': get_current_time_gmt3().isoformat()
+    }), 500
 
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
+    
+    logger.info("🚀 Iniciando Placa FIPE Scraper API...")
+    logger.info("📡 API disponível em: http://localhost:5000")
+    logger.info("🔍 Endpoint principal: /api/placa/<placa>")
+    
     app.run(debug=True, host='0.0.0.0', port=5000)

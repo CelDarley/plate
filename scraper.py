@@ -366,12 +366,3 @@ class PlacaFipeScraper:
             placas.append(placa)
         
         return placas
-
-    def close(self):
-        """Fecha o driver do Chrome"""
-        try:
-            if hasattr(self, 'driver') and self.driver:
-                self.driver.quit()
-                print("✅ Driver do Chrome fechado")
-        except Exception as e:
-            print(f"⚠️  Erro ao fechar driver: {e}")

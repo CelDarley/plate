@@ -1,55 +1,29 @@
-# 🚗 Placa FIPE Scraper
+# �� Placa FIPE Scraper API
 
-Sistema automatizado de scraping para consulta de informações de veículos através de placas, com interface web moderna e banco de dados MySQL.
+API REST para consulta de informações de veículos através de placas, com armazenamento em banco MySQL e fuso horário GMT-3 (Brasil).
 
 ## ✨ Funcionalidades
 
-- **🔍 Scraping Automatizado**: Consulta automática de dados de veículos por placa
-- **🌐 Interface Web**: Dashboard moderno com Bootstrap 5 e Font Awesome
-- **📊 Gestão de Dados**: Visualização e gerenciamento de todas as placas processadas
-- **👁️ Modal de Detalhes**: Visualização completa de todos os dados de cada veículo
-- **⏱️ Controle de Intervalos**: Sistema inteligente de pausas entre consultas
-- **📈 Histórico**: Rastreamento completo de todas as operações de scraping
-- **🔧 Multi-threading**: Processamento em background sem bloquear a interface
-- **💾 Banco MySQL**: Armazenamento robusto com fuso horário GMT-3 (Brasil)
+- **🔍 API REST**: Endpoint simples para consulta de placas
+- **📊 Cache Inteligente**: Dados salvos no banco para consultas futuras
+- **🌐 Scraping Automatizado**: Consulta automática quando placa não existe no banco
+- **✅ Validação**: Verifica formato de placa (antigo e Mercosul)
+- **📈 Histórico**: Rastreamento de todas as consultas realizadas
+- **💾 Banco MySQL**: Armazenamento robusto com fuso horário GMT-3
+- **🔧 Logs**: Sistema de logging para monitoramento
 
 ## 🚀 Tecnologias Utilizadas
 
 - **Backend**: Flask (Python)
-- **Frontend**: HTML5, CSS3, JavaScript, Bootstrap 5
 - **Banco de Dados**: MySQL com SQLAlchemy
-- **Web Scraping**: 
-  - **Selenium WebDriver** (com navegador)
-  - **Requests + BeautifulSoup** (sem navegador - mais rápido)
-  - **Sistema Híbrido** (alterna automaticamente)
-- **Interface**: Font Awesome Icons
+- **Web Scraping**: Selenium WebDriver
+- **Validação**: Regex para formatos de placa
+- **Logging**: Sistema de logs estruturado
 - **Fuso Horário**: GMT-3 (Horário de Brasília)
-
-## 🔧 Métodos de Scraping
-
-### 1. **Requests + BeautifulSoup** ⚡ (Recomendado)
-- **Vantagens**: Muito mais rápido, menor uso de memória, sem dependência do Chrome
-- **Desvantagens**: Pode não funcionar em sites com JavaScript complexo
-- **Performance**: 3-5x mais rápido que Selenium
-
-### 2. **Selenium WebDriver** 🌐
-- **Vantagens**: Funciona com JavaScript, mais robusto
-- **Desvantagens**: Mais lento, maior uso de memória, depende do Chrome
-- **Performance**: Mais lento, mas mais confiável
-
-### 3. **Scraper Alternativo** 🔄
-- **Vantagens**: Tenta múltiplos sites, fallback automático, sem dependências externas
-- **Desvantagens**: Dados podem ser limitados
-- **Performance**: Rápido e confiável
-
-### 4. **Sistema Híbrido** 🚀
-- **Vantagens**: Melhor dos três mundos, fallback automático inteligente
-- **Como funciona**: Tenta Requests → Alternativo → Selenium (em ordem de preferência)
-- **Performance**: Otimizado automaticamente
 
 ## 📋 Dados Coletados
 
-Para cada placa, o sistema coleta:
+Para cada placa, a API retorna:
 
 | Campo | Descrição |
 |-------|-----------|
@@ -124,130 +98,192 @@ cp config.example .env
 python3 migrate_to_mysql.py
 ```
 
-### 6. Inicie a aplicação
+### 6. Inicie a API
 
 ```bash
 python3 app.py
 ```
 
-A aplicação estará disponível em: http://localhost:5000
-
-## 🔧 Configuração dos Métodos de Scraping
-
-### Usar Apenas Requests (Mais Rápido)
-
-```python
-# Em app.py, altere a linha:
-from scraper_requests import PlacaFipeScraperRequests
-
-# E na função executar_scraping:
-scraper = PlacaFipeScraperRequests()
-```
-
-### Usar Apenas Selenium (Mais Robusto)
-
-```python
-# Em app.py, altere a linha:
-from scraper import PlacaFipeScraper
-
-# E na função executar_scraping:
-scraper = PlacaFipeScraper()
-```
-
-### Usar Apenas Alternativo (Múltiplos Sites)
-
-```python
-# Em app.py, altere a linha:
-from scraper_alternative import PlacaFipeScraperAlternative
-
-# E na função executar_scraping:
-scraper = PlacaFipeScraperAlternative()
-```
-
-### Usar Sistema Híbrido (Recomendado)
-
-```python
-# Em app.py, altere a linha:
-from scraper_hybrid import PlacaFipeScraperHybrid
-
-# E na função executar_scraping:
-scraper = PlacaFipeScraperHybrid(preferencia="auto")  # ou "requests", "selenium", "alternative"
-```
-
-## 🧪 Testando Performance
-
-Execute o benchmark para comparar os métodos:
-
-```bash
-python3 benchmark_scrapers.py
-```
-
-Este script testa todos os métodos disponíveis e mostra:
-- Tempo de execução
-- Taxa de sucesso
-- Comparação de performance
-- Ranking dos métodos
-
-## 🧪 Resultados do Benchmark
-
-### 📊 Comparação de Performance
-
-| Método | Tempo Médio | Taxa de Sucesso | Vantagens | Desvantagens |
-|--------|-------------|-----------------|-----------|--------------|
-| **Requests + BeautifulSoup** | ~0.3s | 0% | Muito rápido | Bloqueado pelo site |
-| **Selenium WebDriver** | ~12.7s | 100% | Dados completos | Lento, usa Chrome |
-| **Alternativo** | ~18.4s | 100% | Sem dependências | Dados limitados |
-| **Híbrido (Auto)** | ~22.5s | 100% | Melhor dos mundos | Overhead de fallback |
-
-### 🏆 Recomendações
-
-1. **Para Produção**: Use o **Sistema Híbrido** com `preferencia="auto"`
-2. **Para Desenvolvimento**: Use **Selenium** para dados completos
-3. **Para Performance**: Use **Alternativo** se não precisar de todos os dados
-4. **Evite**: **Requests** puro (bloqueado pelo site)
-
-### 🔧 Configuração Recomendada
-
-```python
-# Em app.py
-from scraper_hybrid import PlacaFipeScraperHybrid
-
-# Na função executar_scraping:
-scraper = PlacaFipeScraperHybrid(preferencia="auto")
-```
-
-O sistema híbrido automaticamente:
-- Tenta Requests primeiro (mais rápido)
-- Se falhar, tenta Alternativo (sem dependências)
-- Se falhar, usa Selenium (mais robusto)
-- Garante 100% de taxa de sucesso
+A API estará disponível em: http://localhost:5000
 
 ## 📖 Como Usar
 
-### 1. Acesso ao Sistema
+### 🔍 Endpoints Disponíveis
 
-- **Página Inicial**: http://localhost:5000
-- **Painel de Gestão**: http://localhost:5000/gestao
+#### 1. **Informações da API**
+```http
+GET /
+```
+**Resposta:**
+```json
+{
+  "api": "Placa FIPE Scraper API",
+  "version": "1.0.0",
+  "description": "API para consulta de dados de veículos por placa",
+  "endpoints": {
+    "/": "Informações da API",
+    "/api/placa/<placa>": "Consulta dados de uma placa específica",
+    "/api/placas": "Lista todas as placas consultadas",
+    "/api/placa/<placa>/historico": "Histórico de consultas de uma placa"
+  }
+}
+```
 
-### 2. Iniciar Scraping
+#### 2. **Consulta de Placa** (Principal)
+```http
+GET /api/placa/{placa}
+```
 
-1. Acesse o painel de gestão
-2. Digite as placas (uma por linha) no campo de texto
-3. Clique em "Iniciar Scraping"
-4. Acompanhe o progresso em tempo real
+**Exemplos:**
+- `GET /api/placa/ABC1234` (formato antigo)
+- `GET /api/placa/ABC1D23` (formato Mercosul)
 
-### 3. Visualizar Resultados
+**Resposta de Sucesso:**
+```json
+{
+  "placa": "ABC1234",
+  "dados": {
+    "id": 1,
+    "marca": "VOLKSWAGEN",
+    "generico": "POLO",
+    "modelo": "POLO CL AB",
+    "importado": "Não",
+    "ano": "2024",
+    "ano_modelo": "2025",
+    "cor": "CINZA",
+    "cilindrada": "1000 cc",
+    "combustivel": "Gasolina",
+    "chassi": "*******12345",
+    "motor": "*****67890",
+    "passageiros": "5",
+    "uf": "MG",
+    "municipio": "Belo Horizonte",
+    "status": "pendente",
+    "data_scraping": "2025-08-21T10:30:00"
+  },
+  "fonte": "scraping_novo",
+  "timestamp": "2025-08-21T10:30:00"
+}
+```
 
-- **Tabela Principal**: Mostra placa, marca, modelo, ano, município, UF e data
-- **Modal de Detalhes**: Clique no ícone 👁️ para ver todos os dados
-- **Pesquisa**: Use o campo de busca para filtrar resultados
-- **Paginação**: Navegue entre as páginas de resultados
+**Resposta de Erro (formato inválido):**
+```json
+{
+  "erro": "Formato de placa inválido",
+  "placa": "123ABC",
+  "formatos_aceitos": ["ABC1234", "ABC1D23"],
+  "exemplo": "ABC1234 ou ABC1D23"
+}
+```
 
-### 4. Controles de Scraping
+#### 3. **Listar Todas as Placas**
+```http
+GET /api/placas?page=1&per_page=20&search=termo
+```
 
-- **Intervalos Inteligentes**: 30s → 45s → 65s → 48s (repetindo)
-- **Parada Segura**: Pode interromper o processo a qualquer momento
-- **Status em Tempo Real**: Monitoramento contínuo do progresso
+**Parâmetros:**
+- `page` (opcional): Número da página (padrão: 1)
+- `per_page` (opcional): Itens por página (padrão: 20, máximo: 100)
+- `search` (opcional): Termo de busca
+
+**Resposta:**
+```json
+{
+  "placas": [
+    {
+      "id": 1,
+      "placa": "ABC1234",
+      "marca": "VOLKSWAGEN",
+      "modelo": "POLO CL AB",
+      "ano": "2024",
+      "uf": "MG",
+      "municipio": "Belo Horizonte",
+      "data_scraping": "2025-08-21T10:30:00"
+    }
+  ],
+  "paginacao": {
+    "pagina_atual": 1,
+    "total_paginas": 1,
+    "total_placas": 1,
+    "por_pagina": 20
+  },
+  "timestamp": "2025-08-21T10:30:00"
+}
+```
+
+#### 4. **Histórico de uma Placa**
+```http
+GET /api/placa/{placa}/historico
+```
+
+**Resposta:**
+```json
+{
+  "placa": "ABC1234",
+  "historico": {
+    "id": 1,
+    "marca": "VOLKSWAGEN",
+    "generico": "POLO",
+    "modelo": "POLO CL AB",
+    "importado": "Não",
+    "ano": "2024",
+    "ano_modelo": "2025",
+    "cor": "CINZA",
+    "cilindrada": "1000 cc",
+    "combustivel": "Gasolina",
+    "chassi": "*******12345",
+    "motor": "*****67890",
+    "passageiros": "5",
+    "uf": "MG",
+    "municipio": "Belo Horizonte",
+    "status": "pendente",
+    "data_scraping": "2025-08-21T10:30:00"
+  },
+  "timestamp": "2025-08-21T10:30:00"
+}
+```
+
+### 📱 Exemplos de Uso
+
+#### cURL
+```bash
+# Consultar uma placa
+curl "http://localhost:5000/api/placa/ABC1234"
+
+# Listar placas
+curl "http://localhost:5000/api/placas?page=1&per_page=10"
+
+# Histórico de uma placa
+curl "http://localhost:5000/api/placa/ABC1234/historico"
+```
+
+#### Python
+```python
+import requests
+
+# Consultar uma placa
+response = requests.get("http://localhost:5000/api/placa/ABC1234")
+if response.status_code == 200:
+    dados = response.json()
+    print(f"Marca: {dados['dados']['marca']}")
+    print(f"Modelo: {dados['dados']['modelo']}")
+```
+
+#### JavaScript
+```javascript
+// Consultar uma placa
+fetch('http://localhost:5000/api/placa/ABC1234')
+  .then(response => response.json())
+  .then(data => {
+    console.log(`Marca: ${data.dados.marca}`);
+    console.log(`Modelo: ${data.dados.modelo}`);
+  });
+```
+
+### 🔧 Formatos de Placa Aceitos
+
+1. **Formato Antigo**: `ABC1234` (3 letras + 4 números)
+2. **Formato Mercosul**: `ABC1D23` (3 letras + 1 número + 1 letra + 2 números)
 
 ## 🔧 Configuração
 
@@ -272,21 +308,29 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://plate:Plate()123@localh
 
 ```
 plate/
-├── app.py                    # Aplicação principal Flask
-├── scraper.py               # Módulo de scraping com Selenium
-├── scraper_requests.py      # Módulo de scraping sem navegador (Requests)
-├── scraper_alternative.py   # Scraper alternativo (múltiplos sites)
-├── scraper_hybrid.py        # Sistema híbrido (Selenium + Requests + Alternativo)
-├── benchmark_scrapers.py    # Script de comparação de performance
-├── migrate_to_mysql.py      # Script de migração SQLite → MySQL
-├── requirements.txt         # Dependências Python
-├── templates/               # Templates HTML
-│   ├── index.html          # Página inicial
-│   └── gestao.html         # Painel de gestão
-├── instance/               # Banco SQLite (local)
-├── .gitignore             # Arquivos ignorados pelo Git
-└── README.md              # Este arquivo
+├── app.py                 # API principal Flask
+├── scraper.py            # Módulo de scraping
+├── migrate_to_mysql.py   # Script de migração SQLite → MySQL
+├── test_api.py           # Script de teste da API
+├── requirements.txt      # Dependências Python
+├── .gitignore          # Arquivos ignorados pelo Git
+└── README.md           # Este arquivo
 ```
+
+## 🧪 Testando a API
+
+Execute o script de teste para verificar se tudo está funcionando:
+
+```bash
+python3 test_api.py
+```
+
+Este script testa:
+- ✅ Endpoint raiz
+- ✅ Consulta de placas válidas
+- ✅ Listagem de placas
+- ✅ Histórico de placas
+- ✅ Validação de placas inválidas
 
 ## 🚨 Troubleshooting
 
@@ -316,6 +360,14 @@ SET GLOBAL time_zone = '-03:00';
 SET time_zone = '-03:00';
 ```
 
+## 🔒 Segurança e Boas Práticas
+
+- **Rate Limiting**: Considere implementar limitação de requisições
+- **Autenticação**: Para uso em produção, adicione autenticação
+- **HTTPS**: Use HTTPS em ambiente de produção
+- **Validação**: Sempre valide o formato da placa antes de processar
+- **Logs**: Monitore os logs para detectar problemas
+
 ## 🤝 Contribuição
 
 1. Fork o projeto
@@ -335,11 +387,10 @@ Este projeto está sob a licença MIT. Veja o arquivo `LICENSE` para mais detalh
 ## 🙏 Agradecimentos
 
 - Flask Framework
-- Bootstrap 5
-- Font Awesome
 - Selenium WebDriver
 - MySQL Community Edition
+- Comunidade Python
 
 ---
 
-⭐ **Se este projeto foi útil para você, considere dar uma estrela no repositório!**
+⭐ **Se esta API foi útil para você, considere dar uma estrela no repositório!**
