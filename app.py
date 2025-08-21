@@ -176,8 +176,11 @@ def executar_scraping(placas, historico_id):
                             placa_existente.status = 'atualizado'
                         else:
                             print(f"   ➕ Criando nova entrada para: {placa}")
-                            # Criar nova entrada - remover placa dos dados se existir
-                            dados_limpos = {k: v for k, v in dados.items() if k != 'placa'}
+                            # Criar nova entrada - filtrar apenas campos válidos do modelo
+                            campos_validos = ['marca', 'generico', 'modelo', 'importado', 'ano', 'ano_modelo', 
+                                            'cor', 'cilindrada', 'combustivel', 'chassi', 'motor', 'passageiros', 
+                                            'uf', 'municipio', 'status']
+                            dados_limpos = {k: v for k, v in dados.items() if k in campos_validos}
                             nova_placa = Placa(placa=placa, **dados_limpos)
                             db.session.add(nova_placa)
                         

@@ -143,12 +143,6 @@ class PlacaFipeScraperAlternative:
                 'status': 'consulta_basica'
             }
             
-            # Adicionar informações baseadas no formato da placa
-            if re.match(r'^[A-Z]{3}\d{4}$', placa):
-                dados['formato'] = 'antigo'
-            elif re.match(r'^[A-Z]{3}\d{1}[A-Z]\d{2}$', placa):
-                dados['formato'] = 'mercosul'
-            
             print(f"   ℹ️  Informações básicas extraídas para {placa}")
             return dados
             
