@@ -1,0 +1,73 @@
+version: '3.8'
+
+services:
+  # API Placa FIPE Scraper
+  plate-api:
+    build: .
+    container_name: plate-api
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=production
+      - FLASK_DEBUG=false
+      - CHROME_HEADLESS=true
+      - CHROME_NO_SANDBOX=true
+      - CHROME_DISABLE_GPU=true
+      - SCRAPER_METHOD=auto
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_USER=plate
+      - DB_PASSWORD=Plate()123
+      - DB_NAME=plate
+    depends_on:
+      - mysql
+    volumes:
+      - ./logs:/app/logs
+      - ./data:/app/data
+    restart: unless-stopped
+    networks:
+      - plate-network
+
+  # Banco de dados MySQL
+  mysql:
+    image: mysql:8.0
+    container_name: plate-mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=root123
+      - MYSQL_DATABASE=plate
+      - MYSQL_USER=plate
+      - MYSQL_PASSWORD=Plate()123
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./mysql/init:/docker-entrypoint-initdb.d
+    restart: unless-stopped
+    networks:
+      - plate-network
+    command: --default-authentication-plugin=mysql_native_password
+
+  # Nginx (opcional - para produção)
+  nginx:
+    image: nginx:alpine
+    container_name: plate-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/ssl:/etc/nginx/ssl
+    depends_on:
+      - plate-api
+    restart: unless-stopped
+    networks:
+      - plate-network
+    profiles:
+      - production
+
+volumes:
+  mysql_data:
+
+networks:
+  plate-network:
+    driver: bridge

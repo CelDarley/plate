@@ -4,6 +4,7 @@ from datetime import datetime, timezone, timedelta
 import os
 from dotenv import load_dotenv
 from scraper import PlacaFipeScraper
+from scraper_requests import PlacaFipeScraperRequests
 import logging
 
 # Configurar logging
@@ -19,9 +20,39 @@ app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key')
 
 db = SQLAlchemy(app)
 
+# Configurações de scraping
+SCRAPER_METHOD = os.getenv('SCRAPER_METHOD', 'auto')  # 'selenium', 'requests', 'auto'
+CHROME_HEADLESS = os.getenv('CHROME_HEADLESS', 'true').lower() == 'true'
+
 # Função para obter data/hora atual no fuso GMT-3
 def get_current_time_gmt3():
     return datetime.now(timezone(timedelta(hours=-3)))
+
+# Função para escolher o scraper baseado no ambiente
+def get_scraper():
+    """
+    Escolhe o scraper baseado na configuração e disponibilidade
+    """
+    if SCRAPER_METHOD == 'requests':
+        logger.info("🔧 Usando scraper baseado em requests")
+        return PlacaFipeScraperRequests()
+    
+    elif SCRAPER_METHOD == 'selenium':
+        logger.info("🔧 Usando scraper baseado em Selenium")
+        return PlacaFipeScraper()
+    
+    else:  # auto - tenta selenium primeiro, depois requests
+        try:
+            logger.info("🔧 Tentando scraper Selenium...")
+            scraper = PlacaFipeScraper()
+            # Testa se consegue inicializar
+            scraper._setup_chrome_headless()  # Configura Chrome headless
+            logger.info("✅ Selenium configurado com sucesso")
+            return scraper
+        except Exception as e:
+            logger.warning(f"⚠️ Selenium falhou: {str(e)}")
+            logger.info("🔄 Fallback para scraper baseado em requests")
+            return PlacaFipeScraperRequests()
 
 # Modelo para armazenar os dados das placas
 class Placa(db.Model):
@@ -118,7 +149,7 @@ def consultar_placa(placa):
         logger.info(f"Iniciando scraping para placa {placa}")
         
         try:
-            scraper = PlacaFipeScraper()
+            scraper = get_scraper()
             dados = scraper.scraping_placa(placa)
             
             if dados:

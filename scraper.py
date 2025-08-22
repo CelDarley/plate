@@ -2,6 +2,7 @@ import requests
 from bs4 import BeautifulSoup
 import time
 import random
+import os
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -18,6 +19,50 @@ class PlacaFipeScraper:
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         })
         
+        # Configurações baseadas em ambiente
+        self.chrome_headless = os.getenv('CHROME_HEADLESS', 'true').lower() == 'true'
+        self.chrome_no_sandbox = os.getenv('CHROME_NO_SANDBOX', 'true').lower() == 'true'
+        self.chrome_disable_gpu = os.getenv('CHROME_DISABLE_GPU', 'true').lower() == 'true'
+        
+    def _setup_chrome_headless(self):
+        """
+        Configura Chrome para funcionar em servidor headless
+        """
+        try:
+            chrome_options = Options()
+            
+            # Configurações essenciais para servidor
+            if self.chrome_headless:
+                chrome_options.add_argument("--headless")
+            
+            if self.chrome_no_sandbox:
+                chrome_options.add_argument("--no-sandbox")
+            
+            if self.chrome_disable_gpu:
+                chrome_options.add_argument("--disable-gpu")
+            
+            # Configurações adicionais para servidor
+            chrome_options.add_argument("--disable-dev-shm-usage")
+            chrome_options.add_argument("--window-size=1920,1080")
+            chrome_options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+            chrome_options.add_argument("--disable-blink-features=AutomationControlled")
+            chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+            chrome_options.add_experimental_option('useAutomationExtension', False)
+            
+            # Configurações específicas para servidor
+            chrome_options.add_argument("--disable-extensions")
+            chrome_options.add_argument("--disable-plugins")
+            chrome_options.add_argument("--disable-images")
+            chrome_options.add_argument("--disable-javascript")  # Se não precisar de JS
+            chrome_options.add_argument("--disable-web-security")
+            chrome_options.add_argument("--allow-running-insecure-content")
+            
+            return chrome_options
+            
+        except Exception as e:
+            print(f"❌ Erro ao configurar Chrome headless: {e}")
+            raise
+    
     def scraping_placa(self, placa):
         """
         Faz o scraping de uma placa específica
@@ -56,17 +101,8 @@ class PlacaFipeScraper:
         try:
             print(f"        🚗 Configurando Chrome...")
             
-            # Configurar Chrome
-            chrome_options = Options()
-            chrome_options.add_argument("--headless")
-            chrome_options.add_argument("--no-sandbox")
-            chrome_options.add_argument("--disable-dev-shm-usage")
-            chrome_options.add_argument("--disable-gpu")
-            chrome_options.add_argument("--window-size=1920,1080")
-            chrome_options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-            chrome_options.add_argument("--disable-blink-features=AutomationControlled")
-            chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
-            chrome_options.add_experimental_option('useAutomationExtension', False)
+            # Configurar Chrome com configurações de ambiente
+            chrome_options = self._setup_chrome_headless()
             
             print(f"        🔧 Instalando ChromeDriver...")
             try:

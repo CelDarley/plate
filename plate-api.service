@@ -1,0 +1,49 @@
+[Unit]
+Description=Placa FIPE Scraper API
+Documentation=https://github.com/CelDarley/plate
+After=network.target mysql.service
+Wants=mysql.service
+
+[Service]
+Type=simple
+User=plate
+Group=plate
+WorkingDirectory=/opt/plate
+Environment=PATH=/opt/plate/venv/bin
+Environment=FLASK_ENV=production
+Environment=FLASK_DEBUG=false
+Environment=CHROME_HEADLESS=true
+Environment=CHROME_NO_SANDBOX=true
+Environment=CHROME_DISABLE_GPU=true
+Environment=SCRAPER_METHOD=auto
+Environment=DB_HOST=localhost
+Environment=DB_USER=plate
+Environment=DB_PASSWORD=Plate()123
+Environment=DB_NAME=plate
+ExecStart=/opt/plate/venv/bin/python app.py
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+RestartSec=10
+StartLimitInterval=60
+StartLimitBurst=3
+
+# Configurações de segurança
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/plate/logs /opt/plate/data
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+
+# Configurações de recursos
+LimitNOFILE=65536
+LimitNPROC=4096
+MemoryMax=1G
+CPUQuota=200%
+
+[Install]
+WantedBy=multi-user.target
