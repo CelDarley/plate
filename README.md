@@ -13,12 +13,21 @@ API REST para consulta de dados de veículos por placa, com suporte a servidores
 
 ## 🚀 Deploy Rápido
 
-### Opção 1: Deploy Local com Docker Compose
+### Pré-requisito: Instalar Docker
 ```bash
 # Clonar repositório
 git clone https://github.com/CelDarley/plate.git
 cd plate
 
+# Instalar Docker e Docker Compose
+./install_docker.sh
+
+# ⚠️ IMPORTANTE: Faça logout e login novamente
+# Depois continue com o deploy
+```
+
+### Opção 1: Deploy Local com Docker Compose
+```bash
 # Executar deploy local
 ./deploy.sh local
 ```
@@ -48,6 +57,15 @@ cd plate
 ### Para Deploy Local
 - Docker
 - Docker Compose
+
+### Instalação Automática do Docker
+```bash
+# Executar script de instalação
+./install_docker.sh
+
+# ⚠️ IMPORTANTE: Faça logout e login novamente
+# para aplicar as permissões do grupo docker
+```
 
 ### Para Deploy em Servidor
 - Ubuntu/Debian (recomendado)
